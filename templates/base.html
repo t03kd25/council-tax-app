@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Council Tax Explorer{% endblock %} – England</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container">
+      <a class="site-logo" href="{{ url_for('index') }}">
+        <span class="logo-icon">🏛</span> Council Tax Explorer
+      </a>
+      <nav class="main-nav">
+        <a href="{{ url_for('index') }}">Home</a>
+        <a href="{{ url_for('authority_list') }}">Authorities</a>
+        <a href="{{ url_for('regions') }}">Regions</a>
+        <a href="{{ url_for('compare') }}">Compare</a>
+      </nav>
+      <form class="header-search" action="{{ url_for('search') }}" method="get">
+        <input type="search" name="q" placeholder="Search authority…" value="{{ request.args.get('q','') }}">
+        <button type="submit">🔍</button>
+      </form>
+    </div>
+  </header>
+
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>Data source: <a href="https://www.gov.uk/government/collections/council-tax-statistics" target="_blank" rel="noopener">MHCLG Council Tax Statistics</a> (2025-26 &amp; 2026-27). Open Government Licence v3.0.</p>
+    </div>
+  </footer>
+</body>
+</html>

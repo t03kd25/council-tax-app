@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <h1>England Council Tax Explorer</h1>
+  <p class="lead">Explore council tax levels, changes, and comparisons across all 296 billing authorities in England for 2025-26 and 2026-27.</p>
+</section>
+
+<!-- Year summary cards -->
+<section class="year-summary">
+  {% for year, s in stats.items() %}
+  <div class="card stat-card">
+    <h2>{{ year }}</h2>
+    <div class="stat-grid">
+      <div class="stat">
+        <span class="stat-value">{{ s['total_authorities'] }}</span>
+        <span class="stat-label">Billing Authorities</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value">£{{ "%.2f"|format(s['avg_band_d_area']) if s['avg_band_d_area'] else '—' }}</span>
+        <span class="stat-label">Avg Area Band D</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value">{{ "%.1f"|format(s['avg_pct_change']) if s['avg_pct_change'] else '—' }}%</span>
+        <span class="stat-label">Avg Annual Change</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value">£{{ "%.0f"|format(s['min_band_d']) if s['min_band_d'] else '—' }} – £{{ "%.0f"|format(s['max_band_d']) if s['max_band_d'] else '—' }}</span>
+        <span class="stat-label">Area Band D Range</span>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</section>
+
+<!-- League tables -->
+<section class="league-tables">
+  <div class="card">
+    <h3>Highest Area Band D (2026-27)</h3>
+    <table class="data-table">
+      <thead><tr><th>Authority</th><th>Region</th><th>Band D Area</th><th>Change</th></tr></thead>
+      <tbody>
+        {% for r in highest %}
+        <tr>
+          <td>{{ r['name'] }}</td>
+          <td><span class="badge">{{ r['region_code'] }}</span></td>
+          <td class="num">£{{ "%.2f"|format(r['band_d_area']) if r['band_d_area'] else '—' }}</td>
+          <td class="num {% if r['pct_change'] and r['pct_change'] > 0 %}up{% endif %}">
+            {{ "%.1f"|format(r['pct_change']) if r['pct_change'] else '—' }}%
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>Lowest Area Band D (2026-27)</h3>
+    <table class="data-table">
+      <thead><tr><th>Authority</th><th>Region</th><th>Band D Area</th><th>Change</th></tr></thead>
+      <tbody>
+        {% for r in lowest %}
+        <tr>
+          <td>{{ r['name'] }}</td>
+          <td><span class="badge">{{ r['region_code'] }}</span></td>
+          <td class="num">£{{ "%.2f"|format(r['band_d_area']) if r['band_d_area'] else '—' }}</td>
+          <td class="num {% if r['pct_change'] and r['pct_change'] > 0 %}up{% endif %}">
+            {{ "%.1f"|format(r['pct_change']) if r['pct_change'] else '—' }}%
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>Biggest % Rises (2026-27)</h3>
+    <table class="data-table">
+      <thead><tr><th>Authority</th><th>Region</th><th>Band D Billing</th><th>Change</th></tr></thead>
+      <tbody>
+        {% for r in biggest_rises %}
+        <tr>
+          <td>{{ r['name'] }}</td>
+          <td><span class="badge">{{ r['region_code'] }}</span></td>
+          <td class="num">£{{ "%.2f"|format(r['band_d_billing']) if r['band_d_billing'] else '—' }}</td>
+          <td class="num up">{{ "%.1f"|format(r['pct_change']) }}%</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="cta-row">
+  <a class="btn" href="{{ url_for('authority_list') }}">Browse All Authorities →</a>
+  <a class="btn btn-outline" href="{{ url_for('regions') }}">View by Region →</a>
+  <a class="btn btn-outline" href="{{ url_for('compare') }}">Compare Authorities →</a>
+</section>
+{% endblock %}

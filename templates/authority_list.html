@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Authorities{% endblock %}
+
+{% block content %}
+<h1>Billing Authorities <span class="count-badge">{{ total }}</span></h1>
+
+<form class="filter-bar" method="get" action="{{ url_for('authority_list') }}">
+  <input type="search" name="q" value="{{ search }}" placeholder="Search name…">
+
+  <select name="year">
+    {% for y in ["2025-26","2026-27"] %}
+    <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+    {% endfor %}
+  </select>
+
+  <select name="region">
+    <option value="">All Regions</option>
+    {% for r in nav_regions %}
+    <option value="{{ r['code'] }}" {% if r['code'] == region %}selected{% endif %}>{{ r['name'] }}</option>
+    {% endfor %}
+  </select>
+
+  <select name="class">
+    <option value="">All Classes</option>
+    {% for c in nav_classes %}
+    <option value="{{ c['code'] }}" {% if c['code'] == cls %}selected{% endif %}>{{ c['name'] }}</option>
+    {% endfor %}
+  </select>
+
+  <select name="sort">
+    <option value="name"    {% if sort=='name'    %}selected{% endif %}>Sort: Name</option>
+    <option value="band_d"  {% if sort=='band_d'  %}selected{% endif %}>Sort: Band D Billing</option>
+    <option value="area_d"  {% if sort=='area_d'  %}selected{% endif %}>Sort: Band D Area</option>
+    <option value="change"  {% if sort=='change'  %}selected{% endif %}>Sort: % Change</option>
+    <option value="taxbase" {% if sort=='taxbase' %}selected{% endif %}>Sort: Taxbase</option>
+  </select>
+
+  <button type="submit" class="btn">Filter</button>
+  <a href="{{ url_for('authority_list') }}" class="btn btn-outline">Reset</a>
+</form>
+
+{% if authorities %}
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Authority</th>
+      <th>Region</th>
+      <th>Class</th>
+      <th class="num">Band D Billing (£)</th>
+      <th class="num">Area Band D (£)</th>
+      <th class="num">YoY Change</th>
+      <th class="num">Taxbase</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for a in authorities %}
+    <tr>
+      <td><a href="{{ url_for('authority_detail', auth_id=a['id']) }}">{{ a['name'] }}</a></td>
+      <td><span class="badge">{{ a['region_code'] }}</span></td>
+      <td>{{ a['class_code'] }}</td>
+      <td class="num">{{ "£%.2f"|format(a['band_d_billing']) if a['band_d_billing'] else '—' }}</td>
+      <td class="num">{{ "£%.2f"|format(a['band_d_area']) if a['band_d_area'] else '—' }}</td>
+      <td class="num {% if a['pct_change'] and a['pct_change']>0 %}up{% elif a['pct_change'] and a['pct_change']<0 %}down{% endif %}">
+        {{ "%.1f%%"|format(a['pct_change']) if a['pct_change'] is not none else '—' }}
+      </td>
+      <td class="num">{{ "{:,.0f}".format(a['taxbase']) if a['taxbase'] else '—' }}</td>
+      <td><a href="{{ url_for('authority_detail', auth_id=a['id']) }}" class="btn btn-sm">View</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<!-- Pagination -->
+<nav class="pagination">
+  {% if page > 1 %}
+  <a href="?page={{ page-1 }}&year={{ year }}&region={{ region }}&class={{ cls }}&q={{ search }}&sort={{ sort }}" class="btn btn-outline">← Prev</a>
+  {% endif %}
+  <span>Page {{ page }} of {{ pages }}</span>
+  {% if page < pages %}
+  <a href="?page={{ page+1 }}&year={{ year }}&region={{ region }}&class={{ cls }}&q={{ search }}&sort={{ sort }}" class="btn btn-outline">Next →</a>
+  {% endif %}
+</nav>
+
+{% else %}
+<div class="empty-state">
+  <p>No authorities found matching your filters.</p>
+  <a href="{{ url_for('authority_list') }}" class="btn">Clear filters</a>
+</div>
+{% endif %}
+{% endblock %}

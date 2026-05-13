@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Regions{% endblock %}
+
+{% block content %}
+<h1>Regions Overview</h1>
+
+<form class="filter-bar" method="get">
+  <label>Year:
+    <select name="year">
+      {% for y in ["2025-26","2026-27"] %}
+      <option {% if y==year %}selected{% endif %}>{{ y }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <button type="submit" class="btn">Update</button>
+</form>
+
+<div class="region-cards">
+  {% for r in regions %}
+  <a class="card region-card" href="{{ url_for('region_detail', region_code=r['code'], year=year) }}">
+    <h2>{{ r['name'] }}</h2>
+    <div class="region-stats">
+      <div><span class="stat-value">{{ r['authority_count'] }}</span><br><small>Authorities</small></div>
+      <div><span class="stat-value">£{{ "%.0f"|format(r['avg_area']) if r['avg_area'] else '—' }}</span><br><small>Avg Area Band D</small></div>
+      <div><span class="stat-value">{{ "%.1f"|format(r['avg_change']) if r['avg_change'] else '—' }}%</span><br><small>Avg Change</small></div>
+      <div><span class="stat-value">£{{ "%.0f"|format(r['min_billing']) }}–£{{ "%.0f"|format(r['max_billing']) }}</span><br><small>Billing Range</small></div>
+    </div>
+    <span class="card-link">View authorities →</span>
+  </a>
+  {% endfor %}
+</div>
+{% endblock %}

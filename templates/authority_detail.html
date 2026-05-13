@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}{{ authority['name'] }}{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+  <a href="{{ url_for('authority_list') }}">Authorities</a> ›
+  <a href="{{ url_for('region_detail', region_code=authority['region_code']) }}">{{ authority['region_name'] }}</a> ›
+  {{ authority['name'] }}
+</div>
+
+<div class="detail-header">
+  <div>
+    <h1>{{ authority['name'] }}</h1>
+    <div class="meta-pills">
+      <span class="pill">{{ authority['class_name'] }}</span>
+      <span class="pill">{{ authority['region_name'] }}</span>
+      <span class="pill">ONS: {{ authority['ons_code'] }}</span>
+      {% if national_rank %}
+      <span class="pill rank">Ranked #{{ national_rank }} by Area Band D (2026-27)</span>
+      {% endif %}
+    </div>
+  </div>
+  <a href="{{ url_for('compare') }}?id={{ authority['id'] }}" class="btn">+ Compare</a>
+</div>
+
+<!-- Year-by-year data -->
+<section class="detail-years">
+  {% for year in ["2025-26","2026-27"] %}
+  {% set rec = records.get(year) %}
+  {% if rec %}
+  <div class="card year-card">
+    <h2>{{ year }}</h2>
+    <div class="kpi-row">
+      <div class="kpi">
+        <span class="kpi-value">£{{ "%.2f"|format(rec['band_d_billing']) if rec['band_d_billing'] else '—' }}</span>
+        <span class="kpi-label">Band D Billing</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-value">£{{ "%.2f"|format(rec['band_d_area']) if rec['band_d_area'] else '—' }}</span>
+        <span class="kpi-label">Area Band D (incl. precepts)</span>
+      </div>
+      <div class="kpi {% if rec['pct_change'] and rec['pct_change']>0 %}kpi-up{% endif %}">
+        <span class="kpi-value">{{ "%.1f"|format(rec['pct_change']) if rec['pct_change'] else '—' }}%</span>
+        <span class="kpi-label">Change vs Prior Year</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi-value">{{ "{:,.0f}".format(rec['taxbase']) if rec['taxbase'] else '—' }}</span>
+        <span class="kpi-label">Taxbase</span>
+      </div>
+    </div>
+    <table class="data-table detail-table">
+      <tbody>
+        <tr><th>CT Requirement (£)</th><td class="num">{{ "{:,.0f}".format(rec['ct_requirement']) if rec['ct_requirement'] else '—' }}</td></tr>
+        <tr><th>Parish Precept (£)</th><td class="num">{{ "{:,.0f}".format(rec['parish_precept']) if rec['parish_precept'] else '—' }}</td></tr>
+        <tr><th>Collection Rate</th><td class="num">{{ "%.1f"|format(rec['collection_rate']*100) if rec['collection_rate'] else '—' }}%</td></tr>
+        <tr><th>Adult Social Care Precept (£)</th><td class="num">{{ "%.2f"|format(rec['asc_precept']) if rec['asc_precept'] else '—' }}</td></tr>
+        <tr><th>Prior Year Band D (£)</th><td class="num">{{ "%.2f"|format(rec['band_d_prev']) if rec['band_d_prev'] else '—' }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  {% endfor %}
+</section>
+
+<!-- Context comparison -->
+<section class="context-section">
+  <h2>In Context</h2>
+  <div class="context-grid">
+    {% for year in ["2025-26","2026-27"] %}
+    {% set rec = records.get(year) %}
+    {% set ra  = region_avgs.get(year) %}
+    {% set ca  = class_avgs.get(year) %}
+    {% if rec and ra %}
+    <div class="card">
+      <h3>{{ year }} – vs Region &amp; Class Averages</h3>
+      <table class="data-table">
+        <thead><tr><th></th><th class="num">This Authority</th><th class="num">Region Avg ({{ authority['region_code'] }})</th><th class="num">{{ authority['class_code'] }} Avg</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Band D Billing</td>
+            <td class="num">{{ "£%.2f"|format(rec['band_d_billing']) if rec['band_d_billing'] else '—' }}</td>
+            <td class="num">{{ "£%.2f"|format(ra['avg_billing']) if ra['avg_billing'] else '—' }}</td>
+            <td class="num">{{ "£%.2f"|format(ca['avg_billing']) if ca and ca['avg_billing'] else '—' }}</td>
+          </tr>
+          <tr>
+            <td>Area Band D</td>
+            <td class="num">{{ "£%.2f"|format(rec['band_d_area']) if rec['band_d_area'] else '—' }}</td>
+            <td class="num">{{ "£%.2f"|format(ra['avg_area']) if ra['avg_area'] else '—' }}</td>
+            <td class="num">{{ "£%.2f"|format(ca['avg_area']) if ca and ca['avg_area'] else '—' }}</td>
+          </tr>
+          <tr>
+            <td>YoY Change</td>
+            <td class="num {% if rec['pct_change'] and rec['pct_change']>0 %}up{% endif %}">{{ "%.1f%%"|format(rec['pct_change']) if rec['pct_change'] else '—' }}</td>
+            <td class="num">{{ "%.1f%%"|format(ra['avg_change']) if ra['avg_change'] else '—' }}</td>
+            <td class="num">{{ "%.1f%%"|format(ca['avg_change']) if ca and ca['avg_change'] else '—' }}</td>
+          </tr>
+          <tr>
+            <td>Authorities in group</td>
+            <td class="num">1</td>
+            <td class="num">{{ ra['n'] }}</td>
+            <td class="num">{{ ca['n'] if ca else '—' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+</section>
+
+<!-- Similar authorities -->
+{% if similar %}
+<section class="similar-section">
+  <h2>Similar {{ authority['class_code'] }} Authorities (2026-27 Band D)</h2>
+  <table class="data-table">
+    <thead><tr><th>Authority</th><th class="num">Band D Billing</th><th class="num">YoY Change</th><th></th></tr></thead>
+    <tbody>
+      {% for s in similar %}
+      <tr>
+        <td><a href="{{ url_for('authority_detail', auth_id=s['id']) }}">{{ s['name'] }}</a></td>
+        <td class="num">£{{ "%.2f"|format(s['band_d_billing']) if s['band_d_billing'] else '—' }}</td>
+        <td class="num {% if s['pct_change'] and s['pct_change']>0 %}up{% endif %}">{{ "%.1f%%"|format(s['pct_change']) if s['pct_change'] else '—' }}</td>
+        <td><a href="{{ url_for('authority_detail', auth_id=s['id']) }}" class="btn btn-sm">View</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+{% endblock %}

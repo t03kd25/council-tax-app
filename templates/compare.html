@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Compare Authorities{% endblock %}
+
+{% block content %}
+<h1>Compare Authorities</h1>
+<p class="lead">Add up to 3 billing authorities to compare side by side.</p>
+
+<!-- Authority search -->
+<form class="filter-bar" method="get" action="{{ url_for('compare') }}">
+  {% for sid in selected_ids %}
+  <input type="hidden" name="id" value="{{ sid }}">
+  {% endfor %}
+  <input type="search" name="q" value="{{ q }}" placeholder="Search to add an authority…" autocomplete="off">
+  <button type="submit" class="btn">Search</button>
+</form>
+
+{% if suggestions %}
+<div class="card suggestion-list">
+  <h3>Search results – click to add</h3>
+  <ul>
+    {% for s in suggestions %}
+    {% if s['id'] not in selected_ids %}
+    <li>
+      <a href="{{ url_for('compare', id=selected_ids+[s['id']]) }}">
+        {{ s['name'] }} <small>({{ s['region_code'] }}, {{ s['class_code'] }})</small>
+      </a>
+    </li>
+    {% else %}
+    <li class="already-added">{{ s['name'] }} ✓ already added</li>
+    {% endif %}
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+{% if authorities %}
+<div class="compare-grid cols-{{ authorities|length }}">
+
+  <!-- Header row -->
+  {% for item in authorities %}
+  <div class="compare-cell compare-header">
+    <h2>{{ item['auth']['name'] }}</h2>
+    <div class="meta-pills">
+      <span class="pill">{{ item['auth']['class_name'] }}</span>
+      <span class="pill">{{ item['auth']['region_name'] }}</span>
+    </div>
+    {% set remaining = selected_ids | reject("equalto", item['auth']['id']) | list %}
+    <a href="{{ url_for('compare', id=remaining) }}" class="btn btn-sm btn-outline">Remove</a>
+  </div>
+  {% endfor %}
+
+  <!-- Data rows -->
+  {% set fields = [
+    ("Band D Billing 2025-26", "band_d_billing", "2025-26", "£"),
+    ("Band D Billing 2026-27", "band_d_billing", "2026-27", "£"),
+    ("Area Band D 2025-26",    "band_d_area",    "2025-26", "£"),
+    ("Area Band D 2026-27",    "band_d_area",    "2026-27", "£"),
+    ("YoY Change 2025-26",     "pct_change",     "2025-26", "%"),
+    ("YoY Change 2026-27",     "pct_change",     "2026-27", "%"),
+    ("Taxbase 2026-27",        "taxbase",        "2026-27", ""),
+    ("CT Requirement 2026-27", "ct_requirement", "2026-27", "£"),
+  ] %}
+
+  {% for label, field, yr, prefix in fields %}
+  <div class="compare-cell compare-row-label"><strong>{{ label }}</strong></div>
+  {% for item in authorities %}
+  {% set rec = item['records'].get(yr) %}
+  {% set val = rec[field] if rec else none %}
+  <div class="compare-cell num {% if field=='pct_change' and val and val>0 %}up{% endif %}">
+    {% if val is not none %}
+      {% if prefix == "£" %}£{{ "%.2f"|format(val) if field!='ct_requirement' else "{:,.0f}".format(val) }}
+      {% elif prefix == "%" %}{{ "%.1f"|format(val) }}%
+      {% else %}{{ "{:,.0f}".format(val) }}
+      {% endif %}
+    {% else %}—{% endif %}
+  </div>
+  {% endfor %}
+  {% endfor %}
+
+</div>
+
+<div class="compare-actions">
+  <a href="{{ url_for('compare') }}" class="btn btn-outline">Clear All</a>
+</div>
+
+{% else %}
+<div class="empty-state">
+  <p>Search for an authority above to begin comparing.</p>
+</div>
+{% endif %}
+{% endblock %}

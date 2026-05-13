@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}{{ region['name'] }}{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+  <a href="{{ url_for('regions') }}">Regions</a> › {{ region['name'] }}
+</div>
+
+<h1>{{ region['name'] }}</h1>
+
+<form class="filter-bar" method="get">
+  <label>Year:
+    <select name="year">
+      {% for y in ["2025-26","2026-27"] %}
+      <option {% if y==year %}selected{% endif %}>{{ y }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <button type="submit" class="btn">Update</button>
+</form>
+
+{% if summary %}
+<div class="card stat-grid-row">
+  <div class="stat"><span class="stat-value">{{ summary['n'] }}</span><span class="stat-label">Authorities</span></div>
+  <div class="stat"><span class="stat-value">£{{ "%.2f"|format(summary['avg_billing']) if summary['avg_billing'] else '—' }}</span><span class="stat-label">Avg Band D Billing</span></div>
+  <div class="stat"><span class="stat-value">£{{ "%.2f"|format(summary['avg_area']) if summary['avg_area'] else '—' }}</span><span class="stat-label">Avg Area Band D</span></div>
+  <div class="stat"><span class="stat-value">{{ "%.1f"|format(summary['avg_change']) if summary['avg_change'] else '—' }}%</span><span class="stat-label">Avg Change</span></div>
+  <div class="stat"><span class="stat-value">£{{ "%.0f"|format(summary['min_b']) }}–£{{ "%.0f"|format(summary['max_b']) }}</span><span class="stat-label">Billing Range</span></div>
+</div>
+{% endif %}
+
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Authority</th>
+      <th>Class</th>
+      <th class="num">Band D Billing (£)</th>
+      <th class="num">Area Band D (£)</th>
+      <th class="num">YoY Change</th>
+      <th class="num">Taxbase</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for a in authorities %}
+    <tr>
+      <td><a href="{{ url_for('authority_detail', auth_id=a['id']) }}">{{ a['name'] }}</a></td>
+      <td>{{ a['class_code'] }}</td>
+      <td class="num">{{ "£%.2f"|format(a['band_d_billing']) if a['band_d_billing'] else '—' }}</td>
+      <td class="num">{{ "£%.2f"|format(a['band_d_area']) if a['band_d_area'] else '—' }}</td>
+      <td class="num {% if a['pct_change'] and a['pct_change']>0 %}up{% elif a['pct_change'] and a['pct_change']<0 %}down{% endif %}">
+        {{ "%.1f%%"|format(a['pct_change']) if a['pct_change'] is not none else '—' }}
+      </td>
+      <td class="num">{{ "{:,.0f}".format(a['taxbase']) if a['taxbase'] else '—' }}</td>
+      <td><a href="{{ url_for('authority_detail', auth_id=a['id']) }}" class="btn btn-sm">View</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
