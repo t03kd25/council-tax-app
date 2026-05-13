@@ -1,5 +1,4 @@
 flask>=3.0
-odfpy>=1.4
 pandas>=2.0
-gunicorn>=22.0
-gunicorn
+odfpy>=1.4
+gunicorn>=21.0

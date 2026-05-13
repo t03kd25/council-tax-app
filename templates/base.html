@@ -11,21 +11,20 @@
     <div class="container">
       <a href="{{ url_for('index') }}" class="logo">🏛 Council Tax Explorer</a>
       <nav class="main-nav">
-        <a href="{{ url_for('index') }}" {% if request.endpoint=='index' %}class="active"{% endif %}>Home</a>
-        <a href="{{ url_for('authorities') }}" {% if request.endpoint=='authorities' %}class="active"{% endif %}>Authorities</a>
-        <a href="{{ url_for('regions') }}" {% if request.endpoint in ('regions','region_detail') %}class="active"{% endif %}>Regions</a>
-        <a href="{{ url_for('compare') }}" {% if request.endpoint=='compare' %}class="active"{% endif %}>Compare</a>
+        <a href="{{ url_for('index') }}"        {% if request.endpoint=='index' %}class="active"{% endif %}>Home</a>
+        <a href="{{ url_for('authorities') }}"  {% if request.endpoint=='authorities' %}class="active"{% endif %}>Billing</a>
+        <a href="{{ url_for('precepting') }}"   {% if request.endpoint=='precepting' %}class="active"{% endif %}>Precepting</a>
+        <a href="{{ url_for('regions') }}"      {% if request.endpoint in ('regions','region_detail') %}class="active"{% endif %}>Regions</a>
+        <a href="{{ url_for('trend') }}"        {% if request.endpoint=='trend' %}class="active"{% endif %}>Trends</a>
+        <a href="{{ url_for('compare') }}"      {% if request.endpoint=='compare' %}class="active"{% endif %}>Compare</a>
       </nav>
     </div>
   </header>
-
-  <main class="container">
-    {% block content %}{% endblock %}
-  </main>
-
+  <main class="container">{% block content %}{% endblock %}</main>
   <footer class="site-footer">
     <div class="container">
-      <p>Data: <a href="https://www.gov.uk/government/collections/council-tax-statistics" target="_blank" rel="noopener">MHCLG Council Tax Statistics</a> (Open Government Licence v3.0). Covers 296 English local authorities, 2025-26 and 2026-27.</p>
+      <p>Data: <a href="https://www.gov.uk/government/collections/council-tax-statistics" target="_blank" rel="noopener">MHCLG Council Tax Statistics</a> (Open Government Licence v3.0).
+      400 authorities · 2,008 records · 2025-26 &amp; 2026-27.</p>
     </div>
   </footer>
 </body>

@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Precepting Authorities{% endblock %}
+{% block content %}
+<h1>Precepting Authorities <span class="count-badge">{{ total }} results</span></h1>
+<p class="lead-text">Counties, police, fire &amp; rescue, and combined authorities that set a precept on top of billing authority council tax.</p>
+
+<form class="filter-bar" method="get" action="{{ url_for('precepting') }}">
+  <input type="text" name="q" value="{{ search }}" placeholder="Search authority..." class="search-input">
+  <select name="ptype">
+    <option value="">All Types</option>
+    {% for pt in precept_types %}<option value="{{ pt }}" {% if pt==ptype %}selected{% endif %}>{{ pt }}</option>{% endfor %}
+  </select>
+  <select name="year">
+    {% for y in years %}<option value="{{ y }}" {% if y==year %}selected{% endif %}>{{ y }}</option>{% endfor %}
+  </select>
+  <select name="sort">
+    <option value="name" {% if sort=="name" %}selected{% endif %}>Name A-Z</option>
+    <option value="band_d_desc" {% if sort=="band_d_desc" %}selected{% endif %}>Highest Band D</option>
+    <option value="band_d_asc" {% if sort=="band_d_asc" %}selected{% endif %}>Lowest Band D</option>
+    <option value="change_desc" {% if sort=="change_desc" %}selected{% endif %}>Biggest Rise</option>
+  </select>
+  <button type="submit" class="btn">Filter</button>
+  <a href="{{ url_for('precepting') }}" class="btn btn-secondary">Reset</a>
+</form>
+
+{% if rows %}
+<div class="table-scroll">
+<table class="data-table">
+  <thead>
+    <tr><th>Authority</th><th>Type</th><th>Region</th><th>Band D (£)</th><th>Change (%)</th><th>ASC Element (£)</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for r in rows %}
+    <tr>
+      <td><strong>{{ r.name }}</strong></td>
+      <td><span class="badge secondary">{{ r.precept_type }}</span></td>
+      <td><span class="badge">{{ region_labels.get(r.region_code, r.region_code) }}</span></td>
+      <td class="num">{% if r.band_d %}£{{ "%.2f"|format(r.band_d) }}{% else %}-{% endif %}</td>
+      <td class="num {% if r.pct_change and r.pct_change > 6 %}high{% endif %}">
+        {% if r.pct_change %}{{ "%.1f"|format(r.pct_change) }}%{% else %}-{% endif %}</td>
+      <td class="num">{% if r.asc_element %}£{{ "%.2f"|format(r.asc_element) }}{% else %}-{% endif %}</td>
+      <td><a href="{{ url_for('authority_detail', auth_id=r.id) }}" class="btn-sm">View</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+<nav class="pagination">
+  {% if page > 1 %}<a href="{{ url_for('precepting', year=year, ptype=ptype, q=search, sort=sort, page=page-1) }}" class="btn btn-secondary">Prev</a>{% endif %}
+  <span>Page {{ page }} of {{ total_pages }}</span>
+  {% if page < total_pages %}<a href="{{ url_for('precepting', year=year, ptype=ptype, q=search, sort=sort, page=page+1) }}" class="btn btn-secondary">Next</a>{% endif %}
+</nav>
+{% else %}
+<p class="empty">No precepting authorities match your filters.</p>
+{% endif %}
+{% endblock %}

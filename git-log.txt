@@ -1,3 +1,4 @@
+* a9ddc03 : Complete application: all routes, templates, tests, deployment config
 * e3283cf : Final polish: error handlers, README, report complete
 * 02215c6 : Add Procfile and requirements for Render deployment
 * 8a0ef15 : Add comprehensive unittest suite: 43 tests covering all routes

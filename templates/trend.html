@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Historical Trends{% endblock %}
+{% block content %}
+<h1>Historical Band D Trends</h1>
+<p class="lead-text">England-wide average Band D council tax from 2011-12 to 2026-27, and average Area Band D by authority type.</p>
+
+<section class="card">
+  <h2>Table 3 – England Average Band D (incl. parish &amp; ASC precepts)</h2>
+  <div class="table-scroll">
+  <table class="data-table">
+    <thead><tr><th>Year</th><th>Band D (£)</th><th>Annual Change (%)</th></tr></thead>
+    <tbody>
+      {% for r in england %}
+      <tr>
+        <td>{{ r.year_label }}</td>
+        <td class="num">£{{ "%.2f"|format(r.band_d) if r.band_d else "-" }}</td>
+        <td class="num {% if r.pct_change and r.pct_change > 5 %}high{% endif %}">
+          {% if r.pct_change %}{{ "%.1f"|format(r.pct_change) }}%{% else %}-{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Table 7 – Average Area Band D by Authority Type</h2>
+  <div class="table-scroll">
+  <table class="data-table">
+    <thead>
+      <tr><th>Year</th><th>England (£)</th><th>Chg %</th><th>London (£)</th><th>Chg %</th><th>Metro (£)</th><th>Chg %</th><th>Unitary (£)</th><th>Chg %</th><th>Shire (£)</th><th>Chg %</th></tr>
+    </thead>
+    <tbody>
+      {% for r in regional %}
+      <tr>
+        <td>{{ r.year_label }}</td>
+        <td class="num">{% if r.england %}£{{ "%.0f"|format(r.england) }}{% else %}-{% endif %}</td>
+        <td class="num">{% if r.england_chg %}{{ "%.1f"|format(r.england_chg) }}%{% else %}-{% endif %}</td>
+        <td class="num">{% if r.london %}£{{ "%.0f"|format(r.london) }}{% else %}-{% endif %}</td>
+        <td class="num">{% if r.london_chg %}{{ "%.1f"|format(r.london_chg) }}%{% else %}-{% endif %}</td>
+        <td class="num">{% if r.metro %}£{{ "%.0f"|format(r.metro) }}{% else %}-{% endif %}</td>
+        <td class="num">{% if r.metro_chg %}{{ "%.1f"|format(r.metro_chg) }}%{% else %}-{% endif %}</td>
+        <td class="num">{% if r.unitary %}£{{ "%.0f"|format(r.unitary) }}{% else %}-{% endif %}</td>
+        <td class="num">{% if r.unitary_chg %}{{ "%.1f"|format(r.unitary_chg) }}%{% else %}-{% endif %}</td>
+        <td class="num">{% if r.shire %}£{{ "%.0f"|format(r.shire) }}{% else %}-{% endif %}</td>
+        <td class="num">{% if r.shire_chg %}{{ "%.1f"|format(r.shire_chg) }}%{% else %}-{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endblock %}

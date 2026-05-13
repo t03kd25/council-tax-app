@@ -1,6 +1,5 @@
 {% extends "base.html" %}
 {% block title %}Compare Authorities{% endblock %}
-
 {% block content %}
 <h1>Compare Authorities</h1>
 <p>Select up to 3 local authorities to compare side-by-side across both years.</p>
@@ -12,7 +11,7 @@
       <select name="id">
         <option value="">— Select —</option>
         {% for a in all_auths %}
-          <option value="{{ a.id }}" {% if a.id in ids and ids[i] == a.id %}selected{% endif %}>{{ a.name }}</option>
+          <option value="{{ a.id }}" {% if a.id in ids and loop.index0 < ids|length and ids[loop.index0 if loop.index0 < ids|length else 0] == a.id %}selected{% endif %}>{{ a.name }}</option>
         {% endfor %}
       </select>
     </label>
@@ -26,57 +25,58 @@
 <div class="compare-grid">
   {% for item in authorities %}
   <div class="compare-col card">
-    <h2>
-      <a href="{{ url_for('authority_detail', auth_id=item.auth.id) }}">{{ item.auth.name }}</a>
-    </h2>
+    <h2><a href="{{ url_for('authority_detail', auth_id=item.auth.id) }}">{{ item.auth.name }}</a></h2>
     <p>
       <span class="badge">{{ region_labels.get(item.auth.region_code, item.auth.region_code) }}</span>
       <span class="badge secondary">{{ class_labels.get(item.auth.class_code, item.auth.class_code) }}</span>
     </p>
 
+    <h3 style="margin:1rem 0 0.5rem;font-size:0.9rem;color:#374151;">Billing (Table 10)</h3>
     <table class="compare-table">
       <thead><tr><th>Metric</th>{% for y in years %}<th>{{ y }}</th>{% endfor %}</tr></thead>
       <tbody>
-        {% set metrics = [
-          ('Billing Band D', 'band_d_billing', True),
-          ('Area Band D', 'band_d_area', True),
-          ('% Change', 'pct_change', False),
-          ('Taxbase', 'taxbase', False),
-          ('CT Requirement', 'ct_requirement', True),
-          ('Parish Precept', 'parish_precept', True),
-          ('Collection Rate', 'collection_rate', False),
-        ] %}
-        {% for label, field, is_money in metrics %}
+        {% set metrics = [("Billing Band D","band_d_billing",True),("Area Band D","band_d_area",True),("% Change","pct_change",False),("Taxbase","taxbase",False),("CT Requirement","ct_requirement",True)] %}
+        {% for label,field,is_money in metrics %}
         <tr>
           <td>{{ label }}</td>
           {% for y in years %}
             {% set rec = item.records.get(y) %}
             <td class="num">
               {% if rec and rec[field] is not none %}
-                {% if field == 'pct_change' %}
-                  <span class="{% if rec[field] > 6 %}high{% endif %}">{{ "%.1f"|format(rec[field]) }}%</span>
-                {% elif field == 'collection_rate' %}
-                  {{ "%.1f"|format(rec[field] * 100) }}%
-                {% elif is_money and rec[field] > 1000 %}
-                  £{{ "{:,.0f}".format(rec[field]) }}
-                {% elif is_money %}
-                  £{{ "%.2f"|format(rec[field]) }}
-                {% else %}
-                  {{ "{:,.0f}".format(rec[field]) }}
-                {% endif %}
-              {% else %}–{% endif %}
+                {% if field=="pct_change" %}<span class="{% if rec[field]>6 %}high{% endif %}">{{ "%.1f"|format(rec[field]) }}%</span>
+                {% elif field=="collection_rate" %}{{ "%.1f"|format(rec[field]*100) }}%
+                {% elif is_money and rec[field]>1000 %}£{{ "{:,.0f}".format(rec[field]) }}
+                {% elif is_money %}£{{ "%.2f"|format(rec[field]) }}
+                {% else %}{{ "{:,.0f}".format(rec[field]) }}{% endif %}
+              {% else %}-{% endif %}
             </td>
           {% endfor %}
         </tr>
         {% endfor %}
       </tbody>
     </table>
+
+    {% if item.bands %}
+    <h3 style="margin:1rem 0 0.5rem;font-size:0.9rem;color:#374151;">Property Bands (Table 9)</h3>
+    <table class="compare-table">
+      <thead><tr><th>Year</th><th>Band A</th><th>Band D</th><th>Band H</th></tr></thead>
+      <tbody>
+        {% for y in years %}
+          {% set b = item.bands.get(y) %}
+          <tr>
+            <td>{{ y }}</td>
+            <td class="num">{% if b and b.band_a %}£{{ "%.0f"|format(b.band_a) }}{% else %}-{% endif %}</td>
+            <td class="num">{% if b and b.band_d %}£{{ "%.0f"|format(b.band_d) }}{% else %}-{% endif %}</td>
+            <td class="num">{% if b and b.band_h %}£{{ "%.0f"|format(b.band_h) }}{% else %}-{% endif %}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
   </div>
   {% endfor %}
 </div>
 {% else %}
-<div class="empty-state">
-  <p>Select authorities above and click Compare to see a side-by-side breakdown.</p>
-</div>
+<div class="empty-state"><p>Select authorities above and click Compare.</p></div>
 {% endif %}
 {% endblock %}
