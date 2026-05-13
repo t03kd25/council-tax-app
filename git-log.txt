@@ -1,3 +1,14 @@
+* e3283cf : Final polish: error handlers, README, report complete
+* 02215c6 : Add Procfile and requirements for Render deployment
+* 8a0ef15 : Add comprehensive unittest suite: 43 tests covering all routes
+* 98e6ca8 : Add CSS stylesheet with responsive layout and data table styles
+*   eb00dba : Merge feature/templates into feature/flask-app
+|\  
+| * 8cfe0c5 : Add regions, region detail and compare templates
+| * 4bbd316 : Add authority detail and error page templates
+| * 8ecddfb : Add base, index and authority list templates
+|/  
+* 6ca9761 : Add Flask app with index, authorities list, and detail routes
 * 3a05b18 : Add README and requirements.txt
 * b7ac7c8 : Fix pagination url_for Jinja2 syntax
 * b66dda0 : Add search route and template
