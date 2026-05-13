@@ -3,89 +3,80 @@
 
 {% block content %}
 <h1>Compare Authorities</h1>
-<p class="lead">Add up to 3 billing authorities to compare side by side.</p>
+<p>Select up to 3 local authorities to compare side-by-side across both years.</p>
 
-<!-- Authority search -->
-<form class="filter-bar" method="get" action="{{ url_for('compare') }}">
-  {% for sid in selected_ids %}
-  <input type="hidden" name="id" value="{{ sid }}">
+<form class="compare-form" method="get" action="{{ url_for('compare') }}">
+  {% for i in range(3) %}
+  <div class="compare-select">
+    <label>Authority {{ i+1 }}
+      <select name="id">
+        <option value="">— Select —</option>
+        {% for a in all_auths %}
+          <option value="{{ a.id }}" {% if a.id in ids and ids[i] == a.id %}selected{% endif %}>{{ a.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+  </div>
   {% endfor %}
-  <input type="search" name="q" value="{{ q }}" placeholder="Search to add an authority…" autocomplete="off">
-  <button type="submit" class="btn">Search</button>
+  <button type="submit" class="btn">Compare</button>
+  <a href="{{ url_for('compare') }}" class="btn btn-secondary">Clear</a>
 </form>
 
-{% if suggestions %}
-<div class="card suggestion-list">
-  <h3>Search results – click to add</h3>
-  <ul>
-    {% for s in suggestions %}
-    {% if s['id'] not in selected_ids %}
-    <li>
-      <a href="{{ url_for('compare', id=selected_ids+[s['id']]) }}">
-        {{ s['name'] }} <small>({{ s['region_code'] }}, {{ s['class_code'] }})</small>
-      </a>
-    </li>
-    {% else %}
-    <li class="already-added">{{ s['name'] }} ✓ already added</li>
-    {% endif %}
-    {% endfor %}
-  </ul>
-</div>
-{% endif %}
-
 {% if authorities %}
-<div class="compare-grid cols-{{ authorities|length }}">
-
-  <!-- Header row -->
+<div class="compare-grid">
   {% for item in authorities %}
-  <div class="compare-cell compare-header">
-    <h2>{{ item['auth']['name'] }}</h2>
-    <div class="meta-pills">
-      <span class="pill">{{ item['auth']['class_name'] }}</span>
-      <span class="pill">{{ item['auth']['region_name'] }}</span>
-    </div>
-    {% set remaining = selected_ids | reject("equalto", item['auth']['id']) | list %}
-    <a href="{{ url_for('compare', id=remaining) }}" class="btn btn-sm btn-outline">Remove</a>
+  <div class="compare-col card">
+    <h2>
+      <a href="{{ url_for('authority_detail', auth_id=item.auth.id) }}">{{ item.auth.name }}</a>
+    </h2>
+    <p>
+      <span class="badge">{{ region_labels.get(item.auth.region_code, item.auth.region_code) }}</span>
+      <span class="badge secondary">{{ class_labels.get(item.auth.class_code, item.auth.class_code) }}</span>
+    </p>
+
+    <table class="compare-table">
+      <thead><tr><th>Metric</th>{% for y in years %}<th>{{ y }}</th>{% endfor %}</tr></thead>
+      <tbody>
+        {% set metrics = [
+          ('Billing Band D', 'band_d_billing', True),
+          ('Area Band D', 'band_d_area', True),
+          ('% Change', 'pct_change', False),
+          ('Taxbase', 'taxbase', False),
+          ('CT Requirement', 'ct_requirement', True),
+          ('Parish Precept', 'parish_precept', True),
+          ('Collection Rate', 'collection_rate', False),
+        ] %}
+        {% for label, field, is_money in metrics %}
+        <tr>
+          <td>{{ label }}</td>
+          {% for y in years %}
+            {% set rec = item.records.get(y) %}
+            <td class="num">
+              {% if rec and rec[field] is not none %}
+                {% if field == 'pct_change' %}
+                  <span class="{% if rec[field] > 6 %}high{% endif %}">{{ "%.1f"|format(rec[field]) }}%</span>
+                {% elif field == 'collection_rate' %}
+                  {{ "%.1f"|format(rec[field] * 100) }}%
+                {% elif is_money and rec[field] > 1000 %}
+                  £{{ "{:,.0f}".format(rec[field]) }}
+                {% elif is_money %}
+                  £{{ "%.2f"|format(rec[field]) }}
+                {% else %}
+                  {{ "{:,.0f}".format(rec[field]) }}
+                {% endif %}
+              {% else %}–{% endif %}
+            </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
   {% endfor %}
-
-  <!-- Data rows -->
-  {% set fields = [
-    ("Band D Billing 2025-26", "band_d_billing", "2025-26", "£"),
-    ("Band D Billing 2026-27", "band_d_billing", "2026-27", "£"),
-    ("Area Band D 2025-26",    "band_d_area",    "2025-26", "£"),
-    ("Area Band D 2026-27",    "band_d_area",    "2026-27", "£"),
-    ("YoY Change 2025-26",     "pct_change",     "2025-26", "%"),
-    ("YoY Change 2026-27",     "pct_change",     "2026-27", "%"),
-    ("Taxbase 2026-27",        "taxbase",        "2026-27", ""),
-    ("CT Requirement 2026-27", "ct_requirement", "2026-27", "£"),
-  ] %}
-
-  {% for label, field, yr, prefix in fields %}
-  <div class="compare-cell compare-row-label"><strong>{{ label }}</strong></div>
-  {% for item in authorities %}
-  {% set rec = item['records'].get(yr) %}
-  {% set val = rec[field] if rec else none %}
-  <div class="compare-cell num {% if field=='pct_change' and val and val>0 %}up{% endif %}">
-    {% if val is not none %}
-      {% if prefix == "£" %}£{{ "%.2f"|format(val) if field!='ct_requirement' else "{:,.0f}".format(val) }}
-      {% elif prefix == "%" %}{{ "%.1f"|format(val) }}%
-      {% else %}{{ "{:,.0f}".format(val) }}
-      {% endif %}
-    {% else %}—{% endif %}
-  </div>
-  {% endfor %}
-  {% endfor %}
-
 </div>
-
-<div class="compare-actions">
-  <a href="{{ url_for('compare') }}" class="btn btn-outline">Clear All</a>
-</div>
-
 {% else %}
 <div class="empty-state">
-  <p>Search for an authority above to begin comparing.</p>
+  <p>Select authorities above and click Compare to see a side-by-side breakdown.</p>
 </div>
 {% endif %}
 {% endblock %}

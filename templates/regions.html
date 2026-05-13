@@ -1,32 +1,39 @@
 {% extends "base.html" %}
 {% block title %}Regions{% endblock %}
-
 {% block content %}
-<h1>Regions Overview</h1>
+<h1>Regional Summary</h1>
 
-<form class="filter-bar" method="get">
+<form class="year-switcher" method="get" action="{{ url_for('regions') }}">
   <label>Year:
-    <select name="year">
-      {% for y in ["2025-26","2026-27"] %}
-      <option {% if y==year %}selected{% endif %}>{{ y }}</option>
-      {% endfor %}
+    <select name="year" onchange="this.form.submit()">
+      {% for y in years %}<option value="{{ y }}" {% if y==year %}selected{% endif %}>{{ y }}</option>{% endfor %}
     </select>
   </label>
-  <button type="submit" class="btn">Update</button>
 </form>
 
-<div class="region-cards">
-  {% for r in regions %}
-  <a class="card region-card" href="{{ url_for('region_detail', region_code=r['code'], year=year) }}">
-    <h2>{{ r['name'] }}</h2>
-    <div class="region-stats">
-      <div><span class="stat-value">{{ r['authority_count'] }}</span><br><small>Authorities</small></div>
-      <div><span class="stat-value">£{{ "%.0f"|format(r['avg_area']) if r['avg_area'] else '—' }}</span><br><small>Avg Area Band D</small></div>
-      <div><span class="stat-value">{{ "%.1f"|format(r['avg_change']) if r['avg_change'] else '—' }}%</span><br><small>Avg Change</small></div>
-      <div><span class="stat-value">£{{ "%.0f"|format(r['min_billing']) }}–£{{ "%.0f"|format(r['max_billing']) }}</span><br><small>Billing Range</small></div>
-    </div>
-    <span class="card-link">View authorities →</span>
-  </a>
-  {% endfor %}
+<div class="table-scroll">
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>Region</th><th>Authorities</th><th>Avg Area Band D</th>
+      <th>Min Area Band D</th><th>Max Area Band D</th><th>Avg % Change</th><th>Total Taxbase</th><th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in rows %}
+    <tr>
+      <td><strong>{{ region_labels.get(r.region_code, r.region_code) }}</strong></td>
+      <td class="num">{{ r.total_las }}</td>
+      <td class="num">£{{ "%.2f"|format(r.avg_area_band_d) }}</td>
+      <td class="num">£{{ "%.2f"|format(r.min_area_band_d) }}</td>
+      <td class="num">£{{ "%.2f"|format(r.max_area_band_d) }}</td>
+      <td class="num {% if r.avg_pct_change and r.avg_pct_change > 6 %}high{% endif %}">
+        {% if r.avg_pct_change %}{{ "%.1f"|format(r.avg_pct_change) }}%{% else %}-{% endif %}</td>
+      <td class="num">{{ "{:,.0f}".format(r.total_taxbase) if r.total_taxbase else "-" }}</td>
+      <td><a href="{{ url_for('region_detail', code=r.region_code) }}" class="btn-sm">Detail</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
 </div>
 {% endblock %}
