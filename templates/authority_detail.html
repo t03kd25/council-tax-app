@@ -1,130 +1,134 @@
 {% extends "base.html" %}
-{% block title %}{{ authority['name'] }}{% endblock %}
+{% block title %}{{ auth.name }}{% endblock %}
 
 {% block content %}
-<div class="breadcrumb">
-  <a href="{{ url_for('authority_list') }}">Authorities</a> ›
-  <a href="{{ url_for('region_detail', region_code=authority['region_code']) }}">{{ authority['region_name'] }}</a> ›
-  {{ authority['name'] }}
-</div>
+<nav class="breadcrumb">
+  <a href="{{ url_for('index') }}">Home</a> /
+  <a href="{{ url_for('authorities') }}">Authorities</a> /
+  <span>{{ auth.name }}</span>
+</nav>
 
 <div class="detail-header">
-  <div>
-    <h1>{{ authority['name'] }}</h1>
-    <div class="meta-pills">
-      <span class="pill">{{ authority['class_name'] }}</span>
-      <span class="pill">{{ authority['region_name'] }}</span>
-      <span class="pill">ONS: {{ authority['ons_code'] }}</span>
-      {% if national_rank %}
-      <span class="pill rank">Ranked #{{ national_rank }} by Area Band D (2026-27)</span>
-      {% endif %}
-    </div>
+  <h1>{{ auth.name }}</h1>
+  <div class="meta-pills">
+    <span class="badge large">{{ region_labels.get(auth.region_code, auth.region_code) }}</span>
+    <span class="badge large secondary">{{ class_labels.get(auth.class_code, auth.class_code) }}</span>
+    <span class="badge large mono">ONS: {{ auth.ons_code }}</span>
   </div>
-  <a href="{{ url_for('compare') }}?id={{ authority['id'] }}" class="btn">+ Compare</a>
 </div>
 
-<!-- Year-by-year data -->
-<section class="detail-years">
-  {% for year in ["2025-26","2026-27"] %}
-  {% set rec = records.get(year) %}
-  {% if rec %}
-  <div class="card year-card">
-    <h2>{{ year }}</h2>
-    <div class="kpi-row">
-      <div class="kpi">
-        <span class="kpi-value">£{{ "%.2f"|format(rec['band_d_billing']) if rec['band_d_billing'] else '—' }}</span>
-        <span class="kpi-label">Band D Billing</span>
-      </div>
-      <div class="kpi">
-        <span class="kpi-value">£{{ "%.2f"|format(rec['band_d_area']) if rec['band_d_area'] else '—' }}</span>
-        <span class="kpi-label">Area Band D (incl. precepts)</span>
-      </div>
-      <div class="kpi {% if rec['pct_change'] and rec['pct_change']>0 %}kpi-up{% endif %}">
-        <span class="kpi-value">{{ "%.1f"|format(rec['pct_change']) if rec['pct_change'] else '—' }}%</span>
-        <span class="kpi-label">Change vs Prior Year</span>
-      </div>
-      <div class="kpi">
-        <span class="kpi-value">{{ "{:,.0f}".format(rec['taxbase']) if rec['taxbase'] else '—' }}</span>
-        <span class="kpi-label">Taxbase</span>
-      </div>
-    </div>
-    <table class="data-table detail-table">
-      <tbody>
-        <tr><th>CT Requirement (£)</th><td class="num">{{ "{:,.0f}".format(rec['ct_requirement']) if rec['ct_requirement'] else '—' }}</td></tr>
-        <tr><th>Parish Precept (£)</th><td class="num">{{ "{:,.0f}".format(rec['parish_precept']) if rec['parish_precept'] else '—' }}</td></tr>
-        <tr><th>Collection Rate</th><td class="num">{{ "%.1f"|format(rec['collection_rate']*100) if rec['collection_rate'] else '—' }}%</td></tr>
-        <tr><th>Adult Social Care Precept (£)</th><td class="num">{{ "%.2f"|format(rec['asc_precept']) if rec['asc_precept'] else '—' }}</td></tr>
-        <tr><th>Prior Year Band D (£)</th><td class="num">{{ "%.2f"|format(rec['band_d_prev']) if rec['band_d_prev'] else '—' }}</td></tr>
-      </tbody>
-    </table>
-  </div>
-  {% endif %}
-  {% endfor %}
-</section>
+{% if rank and class_size %}
+<div class="rank-banner">
+  Ranked <strong>#{{ rank }}</strong> out of <strong>{{ class_size }}</strong>
+  {{ class_labels.get(auth.class_code, auth.class_code) }} authorities by Area Band D (2026‑27, ascending)
+</div>
+{% endif %}
 
-<!-- Context comparison -->
-<section class="context-section">
-  <h2>In Context</h2>
-  <div class="context-grid">
-    {% for year in ["2025-26","2026-27"] %}
-    {% set rec = records.get(year) %}
-    {% set ra  = region_avgs.get(year) %}
-    {% set ca  = class_avgs.get(year) %}
-    {% if rec and ra %}
-    <div class="card">
-      <h3>{{ year }} – vs Region &amp; Class Averages</h3>
-      <table class="data-table">
-        <thead><tr><th></th><th class="num">This Authority</th><th class="num">Region Avg ({{ authority['region_code'] }})</th><th class="num">{{ authority['class_code'] }} Avg</th></tr></thead>
-        <tbody>
-          <tr>
-            <td>Band D Billing</td>
-            <td class="num">{{ "£%.2f"|format(rec['band_d_billing']) if rec['band_d_billing'] else '—' }}</td>
-            <td class="num">{{ "£%.2f"|format(ra['avg_billing']) if ra['avg_billing'] else '—' }}</td>
-            <td class="num">{{ "£%.2f"|format(ca['avg_billing']) if ca and ca['avg_billing'] else '—' }}</td>
-          </tr>
-          <tr>
-            <td>Area Band D</td>
-            <td class="num">{{ "£%.2f"|format(rec['band_d_area']) if rec['band_d_area'] else '—' }}</td>
-            <td class="num">{{ "£%.2f"|format(ra['avg_area']) if ra['avg_area'] else '—' }}</td>
-            <td class="num">{{ "£%.2f"|format(ca['avg_area']) if ca and ca['avg_area'] else '—' }}</td>
-          </tr>
-          <tr>
-            <td>YoY Change</td>
-            <td class="num {% if rec['pct_change'] and rec['pct_change']>0 %}up{% endif %}">{{ "%.1f%%"|format(rec['pct_change']) if rec['pct_change'] else '—' }}</td>
-            <td class="num">{{ "%.1f%%"|format(ra['avg_change']) if ra['avg_change'] else '—' }}</td>
-            <td class="num">{{ "%.1f%%"|format(ca['avg_change']) if ca and ca['avg_change'] else '—' }}</td>
-          </tr>
-          <tr>
-            <td>Authorities in group</td>
-            <td class="num">1</td>
-            <td class="num">{{ ra['n'] }}</td>
-            <td class="num">{{ ca['n'] if ca else '—' }}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    {% endif %}
-    {% endfor %}
-  </div>
-</section>
-
-<!-- Similar authorities -->
-{% if similar %}
-<section class="similar-section">
-  <h2>Similar {{ authority['class_code'] }} Authorities (2026-27 Band D)</h2>
+<section class="card">
+  <h2>Year-on-Year Comparison</h2>
+  <div class="table-scroll">
   <table class="data-table">
-    <thead><tr><th>Authority</th><th class="num">Band D Billing</th><th class="num">YoY Change</th><th></th></tr></thead>
-    <tbody>
-      {% for s in similar %}
+    <thead>
       <tr>
-        <td><a href="{{ url_for('authority_detail', auth_id=s['id']) }}">{{ s['name'] }}</a></td>
-        <td class="num">£{{ "%.2f"|format(s['band_d_billing']) if s['band_d_billing'] else '—' }}</td>
-        <td class="num {% if s['pct_change'] and s['pct_change']>0 %}up{% endif %}">{{ "%.1f%%"|format(s['pct_change']) if s['pct_change'] else '—' }}</td>
-        <td><a href="{{ url_for('authority_detail', auth_id=s['id']) }}" class="btn btn-sm">View</a></td>
+        <th>Metric</th>
+        {% for rec in records %}<th>{{ rec.year }}</th>{% endfor %}
+        {% if records|length == 2 %}<th>Change</th>{% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% set metrics = [
+        ('Billing Band D (£)', 'band_d_billing'),
+        ('Area Band D (£)', 'band_d_area'),
+        ('CT Requirement (£)', 'ct_requirement'),
+        ('Parish Precept (£)', 'parish_precept'),
+        ('Taxbase', 'taxbase'),
+        ('Collection Rate (%)', 'collection_rate'),
+        ('ASC Precept (£)', 'asc_precept'),
+      ] %}
+      {% for label, field in metrics %}
+      <tr>
+        <td>{{ label }}</td>
+        {% for rec in records %}
+          <td class="num">
+            {% set val = rec[field] %}
+            {% if val is not none %}
+              {% if 'rate' in field.lower() %}
+                {{ "%.2f"|format(val|float * 100) }}%
+              {% elif val > 100 %}
+                £{{ "{:,.0f}".format(val) }}
+              {% else %}
+                £{{ "%.2f"|format(val) }}
+              {% endif %}
+            {% else %}–{% endif %}
+          </td>
+        {% endfor %}
+        {% if records|length == 2 %}
+          <td class="num">
+            {% set v1 = records[0][field] %}
+            {% set v2 = records[1][field] %}
+            {% if v1 and v2 and v1 > 0 %}
+              {% set chg = ((v2 - v1) / v1) * 100 %}
+              <span class="{% if chg > 6 %}high{% elif chg < 0 %}low{% endif %}">
+                {{ "%+.1f"|format(chg) }}%
+              </span>
+            {% else %}–{% endif %}
+          </td>
+        {% endif %}
+      </tr>
+      {% endfor %}
+      <tr>
+        <td>Billing Band D % Change</td>
+        {% for rec in records %}
+          <td class="num {% if rec.pct_change and rec.pct_change > 6 %}high{% endif %}">
+            {% if rec.pct_change %}{{ "%.1f"|format(rec.pct_change) }}%{% else %}–{% endif %}
+          </td>
+        {% endfor %}
+        {% if records|length == 2 %}<td>–</td>{% endif %}
+      </tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Compare with Peers
+    <small>({{ class_labels.get(auth.class_code,'') }}, {{ region_labels.get(auth.region_code,'') }}, 2026‑27)</small>
+  </h2>
+  {% if peers %}
+  <div class="table-scroll">
+  <table class="data-table">
+    <thead>
+      <tr><th>Authority</th><th>Billing Band D (£)</th><th>Area Band D (£)</th><th>Change (%)</th><th></th></tr>
+    </thead>
+    <tbody>
+      <!-- Highlight current authority row in context -->
+      {% set current_rec = records[-1] %}
+      <tr class="highlight-row">
+        <td><strong>{{ auth.name }} ★</strong></td>
+        <td class="num">{% if current_rec.band_d_billing %}£{{ "%.2f"|format(current_rec.band_d_billing) }}{% else %}–{% endif %}</td>
+        <td class="num">{% if current_rec.band_d_area %}£{{ "%.2f"|format(current_rec.band_d_area) }}{% else %}–{% endif %}</td>
+        <td class="num">{% if current_rec.pct_change %}{{ "%.1f"|format(current_rec.pct_change) }}%{% else %}–{% endif %}</td>
+        <td>–</td>
+      </tr>
+      {% for p in peers %}
+      <tr>
+        <td>{{ p.name }}</td>
+        <td class="num">{% if p.band_d_billing %}£{{ "%.2f"|format(p.band_d_billing) }}{% else %}–{% endif %}</td>
+        <td class="num">{% if p.band_d_area %}£{{ "%.2f"|format(p.band_d_area) }}{% else %}–{% endif %}</td>
+        <td class="num">{% if p.pct_change %}{{ "%.1f"|format(p.pct_change) }}%{% else %}–{% endif %}</td>
+        <td><a href="{{ url_for('authority_detail', auth_id=p.id) }}" class="btn-sm">View</a></td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
+  </div>
+  {% else %}
+  <p>No peer authorities found in this region and class.</p>
+  {% endif %}
+
+  <p class="actions">
+    <a href="{{ url_for('compare') }}?id={{ auth.id }}" class="btn">Add to Comparison Tool →</a>
+    <a href="{{ url_for('region_detail', code=auth.region_code) }}" class="btn btn-secondary">View {{ region_labels.get(auth.region_code,'') }} Region →</a>
+  </p>
 </section>
-{% endif %}
 {% endblock %}

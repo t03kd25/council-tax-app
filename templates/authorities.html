@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}All Authorities{% endblock %}
+{% block content %}
+<h1>Local Authorities <span class="count-badge">{{ total }} results</span></h1>
+
+<form class="filter-bar" method="get" action="{{ url_for('authorities') }}">
+  <input type="text" name="q" value="{{ search }}" placeholder="Search authority name..." class="search-input">
+  <select name="region">
+    <option value="">All Regions</option>
+    {% for reg in regions %}<option value="{{ reg.code }}" {% if reg.code==region %}selected{% endif %}>{{ reg.name }}</option>{% endfor %}
+  </select>
+  <select name="cls">
+    <option value="">All Classes</option>
+    {% for c in classes %}<option value="{{ c.code }}" {% if c.code==cls %}selected{% endif %}>{{ c.name }}</option>{% endfor %}
+  </select>
+  <select name="year">
+    {% for y in years %}<option value="{{ y }}" {% if y==year %}selected{% endif %}>{{ y }}</option>{% endfor %}
+  </select>
+  <select name="sort">
+    <option value="name" {% if sort=="name" %}selected{% endif %}>Name A-Z</option>
+    <option value="band_d_desc" {% if sort=="band_d_desc" %}selected{% endif %}>Highest Area Band D</option>
+    <option value="band_d_asc" {% if sort=="band_d_asc" %}selected{% endif %}>Lowest Area Band D</option>
+    <option value="change_desc" {% if sort=="change_desc" %}selected{% endif %}>Biggest Rise</option>
+    <option value="change_asc" {% if sort=="change_asc" %}selected{% endif %}>Smallest Rise</option>
+  </select>
+  <button type="submit" class="btn">Filter</button>
+  <a href="{{ url_for('authorities') }}" class="btn btn-secondary">Reset</a>
+</form>
+
+{% if rows %}
+<div class="table-scroll">
+<table class="data-table">
+  <thead>
+    <tr><th>Authority</th><th>Region</th><th>Type</th><th>Billing Band D</th><th>Area Band D</th><th>Change</th><th>Taxbase</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for r in rows %}
+    <tr>
+      <td><strong>{{ r.name }}</strong></td>
+      <td><span class="badge">{{ region_labels.get(r.region_code, r.region_code) }}</span></td>
+      <td>{{ class_labels.get(r.class_code, r.class_code) }}</td>
+      <td class="num">{% if r.band_d_billing %}£{{ "%.2f"|format(r.band_d_billing) }}{% else %}-{% endif %}</td>
+      <td class="num">{% if r.band_d_area %}£{{ "%.2f"|format(r.band_d_area) }}{% else %}-{% endif %}</td>
+      <td class="num {% if r.pct_change and r.pct_change > 6 %}high{% elif r.pct_change and r.pct_change < 3 %}low{% endif %}">
+        {% if r.pct_change %}{{ "%.1f"|format(r.pct_change) }}%{% else %}-{% endif %}</td>
+      <td class="num">{% if r.taxbase %}{{ "{:,.0f}".format(r.taxbase) }}{% else %}-{% endif %}</td>
+      <td><a href="{{ url_for('authority_detail', auth_id=r.id) }}" class="btn-sm">View</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+<nav class="pagination">
+  {% if page > 1 %}<a href="{{ url_for('authorities', year=year, region=region, cls=cls, q=search, sort=sort, page=page-1) }}" class="btn btn-secondary">Prev</a>{% endif %}
+  <span>Page {{ page }} of {{ total_pages }}</span>
+  {% if page < total_pages %}<a href="{{ url_for('authorities', year=year, region=region, cls=cls, q=search, sort=sort, page=page+1) }}" class="btn btn-secondary">Next</a>{% endif %}
+</nav>
+{% else %}
+<p class="empty">No authorities match your filters.</p>
+{% endif %}
+{% endblock %}
