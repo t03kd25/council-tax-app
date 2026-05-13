@@ -1,382 +1,252 @@
-"""Council Tax Explorer – Flask application entry point."""
+"""Council Tax Explorer – Flask application using MHCLG open data."""
 import sqlite3
 import os
-from flask import Flask, render_template, request, redirect, url_for, abort, g
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "council_tax.db")
+from flask import Flask, render_template, request, abort, g
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-change-in-prod")
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, "council_tax.db")
 
-# ── Database helpers ──────────────────────────────────────────────────────────
+YEARS = ["2025-26", "2026-27"]
+
+REGION_LABELS = {
+    "SE": "South East", "E": "East of England", "EM": "East Midlands",
+    "NW": "North West", "L": "London", "WM": "West Midlands",
+    "SW": "South West", "YH": "Yorkshire and the Humber", "NE": "North East",
+}
+
+CLASS_LABELS = {
+    "SD": "Shire District", "UA": "Unitary Authority",
+    "MD": "Metropolitan District", "OLB": "Outer London Borough",
+    "ILB": "Inner London Borough",
+}
+
 
 def get_db():
     if "db" not in g:
-        g.db = sqlite3.connect(DB_PATH)
-        g.db.row_factory = sqlite3.Row
-        g.db.execute("PRAGMA foreign_keys = ON")
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        g.db = conn
     return g.db
 
 
 @app.teardown_appcontext
-def close_db(exc=None):
+def close_db(exc):
     db = g.pop("db", None)
-    if db is not None:
+    if db:
         db.close()
 
 
-def query(sql, args=(), one=False):
-    cur = get_db().execute(sql, args)
-    rv = cur.fetchall()
-    return (rv[0] if rv else None) if one else rv
+def _to_dict(row):
+    return dict(row) if row else None
 
 
-# ── Context processor – pass lookup tables to every template ──────────────────
-
-@app.context_processor
-def inject_globals():
-    regions = query("SELECT code, name FROM region WHERE code != '[z]' ORDER BY name")
-    classes = query("SELECT code, name FROM authority_class ORDER BY name")
-    return dict(nav_regions=regions, nav_classes=classes)
+def query(sql, params=()):
+    rows = get_db().execute(sql, params).fetchall()
+    return [dict(r) for r in rows]
 
 
-# ── Routes ────────────────────────────────────────────────────────────────────
+def query_one(sql, params=()):
+    row = get_db().execute(sql, params).fetchone()
+    return dict(row) if row else None
+
 
 @app.route("/")
 def index():
-    """Homepage: national summary stats for both years."""
-    stats = {}
-    for year in ("2025-26", "2026-27"):
-        row = query(
-            """SELECT
-                COUNT(DISTINCT a.id)            AS total_authorities,
-                AVG(r.band_d_area)              AS avg_band_d_area,
-                AVG(r.band_d_billing)           AS avg_band_d_billing,
-                AVG(r.pct_change)               AS avg_pct_change,
-                MIN(r.band_d_area)              AS min_band_d,
-                MAX(r.band_d_area)              AS max_band_d,
-                SUM(r.ct_requirement)           AS total_ct_requirement
-            FROM council_tax_record r
-            JOIN authority a ON a.id = r.authority_id
-            WHERE r.year = ?""",
-            (year,), one=True
-        )
-        stats[year] = row
-
-    # Top 5 highest / lowest band-D areas in 2026-27
+    year = request.args.get("year", "2026-27")
+    if year not in YEARS:
+        year = "2026-27"
+    stats = query_one(
+        """SELECT AVG(r.band_d_area) AS avg_area_band_d,
+                  AVG(r.band_d_billing) AS avg_billing_band_d,
+                  MIN(r.band_d_area) AS min_area, MAX(r.band_d_area) AS max_area,
+                  COUNT(*) AS total_las
+           FROM council_tax_record r WHERE r.year=?""", (year,))
     highest = query(
-        """SELECT a.name, a.region_code, r.band_d_area, r.pct_change
+        """SELECT a.name, a.region_code, r.band_d_area, r.band_d_billing, r.pct_change, a.id
            FROM council_tax_record r JOIN authority a ON a.id=r.authority_id
-           WHERE r.year='2026-27' AND r.band_d_area IS NOT NULL
-           ORDER BY r.band_d_area DESC LIMIT 5"""
-    )
+           WHERE r.year=? AND r.band_d_area IS NOT NULL
+           ORDER BY r.band_d_area DESC LIMIT 5""", (year,))
     lowest = query(
-        """SELECT a.name, a.region_code, r.band_d_area, r.pct_change
+        """SELECT a.name, a.region_code, r.band_d_area, r.band_d_billing, r.pct_change, a.id
            FROM council_tax_record r JOIN authority a ON a.id=r.authority_id
-           WHERE r.year='2026-27' AND r.band_d_area IS NOT NULL
-           ORDER BY r.band_d_area ASC LIMIT 5"""
-    )
+           WHERE r.year=? AND r.band_d_area IS NOT NULL
+           ORDER BY r.band_d_area ASC LIMIT 5""", (year,))
     biggest_rises = query(
-        """SELECT a.name, a.region_code, r.band_d_billing, r.pct_change
+        """SELECT a.name, a.region_code, r.band_d_billing, r.pct_change, a.id
            FROM council_tax_record r JOIN authority a ON a.id=r.authority_id
-           WHERE r.year='2026-27' AND r.pct_change IS NOT NULL
-           ORDER BY r.pct_change DESC LIMIT 5"""
-    )
-    return render_template(
-        "index.html",
-        stats=stats,
-        highest=highest,
-        lowest=lowest,
-        biggest_rises=biggest_rises,
-    )
+           WHERE r.year=? AND r.pct_change IS NOT NULL
+           ORDER BY r.pct_change DESC LIMIT 5""", (year,))
+    return render_template("index.html", year=year, years=YEARS, stats=stats,
+                           highest=highest, lowest=lowest, biggest_rises=biggest_rises,
+                           region_labels=REGION_LABELS)
 
 
 @app.route("/authorities")
-def authority_list():
-    """Paginated, filterable list of all billing authorities."""
-    page      = max(1, request.args.get("page", 1, type=int))
-    per_page  = 25
-    year      = request.args.get("year", "2026-27")
-    region    = request.args.get("region", "")
-    cls       = request.args.get("class", "")
-    search    = request.args.get("q", "").strip()
-    sort      = request.args.get("sort", "name")
-
-    allowed_sorts = {
-        "name": "a.name",
-        "band_d":  "r.band_d_billing",
-        "area_d":  "r.band_d_area",
-        "change":  "r.pct_change",
-        "taxbase": "r.taxbase",
+def authorities():
+    year = request.args.get("year", "2026-27")
+    region = request.args.get("region", "")
+    cls = request.args.get("cls", "")
+    search = request.args.get("q", "").strip()
+    sort = request.args.get("sort", "name")
+    page = max(1, int(request.args.get("page", 1) or 1))
+    per_page = 25
+    if year not in YEARS:
+        year = "2026-27"
+    valid_sorts = {
+        "name": "a.name ASC", "band_d_desc": "r.band_d_area DESC",
+        "band_d_asc": "r.band_d_area ASC", "change_desc": "r.pct_change DESC",
+        "change_asc": "r.pct_change ASC",
     }
-    order_col = allowed_sorts.get(sort, "a.name")
-
-    where = ["r.year = ?"]
+    order_clause = valid_sorts.get(sort, "a.name ASC")
+    filters = ["r.year = ?"]
     params = [year]
     if region:
-        where.append("a.region_code = ?")
-        params.append(region)
+        filters.append("a.region_code = ?"); params.append(region)
     if cls:
-        where.append("a.class_code = ?")
-        params.append(cls)
+        filters.append("a.class_code = ?"); params.append(cls)
     if search:
-        where.append("a.name LIKE ?")
-        params.append(f"%{search}%")
-
-    where_sql = " AND ".join(where)
-
-    total_row = query(
-        f"""SELECT COUNT(*) AS n
-            FROM council_tax_record r JOIN authority a ON a.id=r.authority_id
-            WHERE {where_sql}""",
-        params, one=True
-    )
-    total = total_row["n"] if total_row else 0
-    pages = max(1, (total + per_page - 1) // per_page)
-    page  = min(page, pages)
+        filters.append("a.name LIKE ?"); params.append(f"%{search}%")
+    where = " AND ".join(filters)
+    total_row = query_one(
+        f"SELECT COUNT(*) AS cnt FROM council_tax_record r JOIN authority a ON a.id=r.authority_id WHERE {where}",
+        params)
+    total = total_row["cnt"] if total_row else 0
+    total_pages = max(1, (total + per_page - 1) // per_page)
+    page = min(page, total_pages)
     offset = (page - 1) * per_page
-
-    authorities = query(
+    rows = query(
         f"""SELECT a.id, a.name, a.region_code, a.class_code,
-                   r.band_d_billing, r.band_d_area, r.pct_change,
-                   r.taxbase, r.ct_requirement
+                   r.band_d_billing, r.band_d_area, r.pct_change, r.taxbase
             FROM council_tax_record r JOIN authority a ON a.id=r.authority_id
-            WHERE {where_sql}
-            ORDER BY {order_col}
-            LIMIT ? OFFSET ?""",
-        params + [per_page, offset]
-    )
-
-    return render_template(
-        "authority_list.html",
-        authorities=authorities,
-        page=page, pages=pages, total=total,
-        year=year, region=region, cls=cls, search=search, sort=sort,
-    )
+            WHERE {where} ORDER BY {order_clause} LIMIT ? OFFSET ?""",
+        params + [per_page, offset])
+    regions_list = query("SELECT code, name FROM region ORDER BY name")
+    classes_list = query("SELECT code, name FROM authority_class ORDER BY name")
+    return render_template("authorities.html", rows=rows, year=year, years=YEARS,
+                           region=region, cls=cls, search=search, sort=sort,
+                           page=page, total_pages=total_pages, total=total,
+                           regions=regions_list, classes=classes_list,
+                           region_labels=REGION_LABELS, class_labels=CLASS_LABELS)
 
 
 @app.route("/authority/<int:auth_id>")
 def authority_detail(auth_id):
-    """Detail page for a single billing authority."""
-    authority = query(
-        """SELECT a.*, rc.name AS class_name, rg.name AS region_name
-           FROM authority a
-           JOIN authority_class rc ON rc.code = a.class_code
-           JOIN region rg ON rg.code = a.region_code
-           WHERE a.id = ?""",
-        (auth_id,), one=True
-    )
-    if not authority:
+    auth = query_one("SELECT * FROM authority WHERE id=?", (auth_id,))
+    if not auth:
         abort(404)
-
-    records = query(
-        """SELECT * FROM council_tax_record WHERE authority_id = ? ORDER BY year""",
-        (auth_id,)
-    )
-    # Regional averages for comparison
-    region_avgs = {}
-    for year in ("2025-26", "2026-27"):
-        row = query(
-            """SELECT AVG(r.band_d_billing) AS avg_billing, AVG(r.band_d_area) AS avg_area,
-                      AVG(r.pct_change) AS avg_change, COUNT(*) AS n
-               FROM council_tax_record r JOIN authority a ON a.id=r.authority_id
-               WHERE r.year=? AND a.region_code=?""",
-            (year, authority["region_code"]), one=True
-        )
-        region_avgs[year] = row
-
-    # Class averages
-    class_avgs = {}
-    for year in ("2025-26", "2026-27"):
-        row = query(
-            """SELECT AVG(r.band_d_billing) AS avg_billing, AVG(r.band_d_area) AS avg_area,
-                      AVG(r.pct_change) AS avg_change, COUNT(*) AS n
-               FROM council_tax_record r JOIN authority a ON a.id=r.authority_id
-               WHERE r.year=? AND a.class_code=?""",
-            (year, authority["class_code"]), one=True
-        )
-        class_avgs[year] = row
-
-    # National rank for 2026-27 band_d_area
-    rank_row = query(
-        """SELECT COUNT(*) + 1 AS rank FROM council_tax_record r2
-           JOIN authority a2 ON a2.id=r2.authority_id
-           WHERE r2.year='2026-27'
-             AND r2.band_d_area > (
-               SELECT band_d_area FROM council_tax_record r3
-               WHERE r3.authority_id=? AND r3.year='2026-27'
-             )""",
-        (auth_id,), one=True
-    )
-    national_rank = rank_row["rank"] if rank_row else None
-
-    # Similar authorities (same class, nearby band_d)
-    this_band_d = None
-    for rec in records:
-        if rec["year"] == "2026-27":
-            this_band_d = rec["band_d_billing"]
-
-    similar = []
-    if this_band_d:
-        similar = query(
-            """SELECT a.id, a.name, r.band_d_billing, r.pct_change
-               FROM council_tax_record r JOIN authority a ON a.id=r.authority_id
-               WHERE r.year='2026-27' AND a.class_code=? AND a.id != ?
-                 AND r.band_d_billing IS NOT NULL
-               ORDER BY ABS(r.band_d_billing - ?) ASC LIMIT 5""",
-            (authority["class_code"], auth_id, this_band_d)
-        )
-
-    return render_template(
-        "authority_detail.html",
-        authority=authority,
-        records={r["year"]: r for r in records},
-        region_avgs=region_avgs,
-        class_avgs=class_avgs,
-        national_rank=national_rank,
-        similar=similar,
-    )
+    records = query("SELECT * FROM council_tax_record WHERE authority_id=? ORDER BY year",
+                    (auth_id,))
+    peers = query(
+        """SELECT a.id, a.name, r.band_d_billing, r.band_d_area, r.pct_change
+           FROM council_tax_record r JOIN authority a ON a.id=r.authority_id
+           WHERE a.class_code=? AND a.region_code=? AND r.year='2026-27' AND a.id!=?
+           ORDER BY r.band_d_area""",
+        (auth["class_code"], auth["region_code"], auth_id))
+    rank_row = query_one(
+        """SELECT COUNT(*)+1 AS rnk FROM council_tax_record r
+           JOIN authority a ON a.id=r.authority_id
+           WHERE a.class_code=(SELECT class_code FROM authority WHERE id=?)
+             AND r.year='2026-27'
+             AND r.band_d_area < (SELECT band_d_area FROM council_tax_record
+                                  WHERE authority_id=? AND year='2026-27')""",
+        (auth_id, auth_id))
+    class_size = query_one(
+        """SELECT COUNT(*) AS cnt FROM council_tax_record r
+           JOIN authority a ON a.id=r.authority_id
+           WHERE a.class_code=(SELECT class_code FROM authority WHERE id=?)
+             AND r.year='2026-27'""", (auth_id,))
+    return render_template("authority_detail.html", auth=auth, records=records, peers=peers,
+                           rank=rank_row["rnk"] if rank_row else None,
+                           class_size=class_size["cnt"] if class_size else None,
+                           region_labels=REGION_LABELS, class_labels=CLASS_LABELS)
 
 
 @app.route("/compare")
 def compare():
-    """Side-by-side comparison of up to 3 authorities."""
     ids_raw = request.args.getlist("id")
     try:
         ids = [int(i) for i in ids_raw if i][:3]
     except ValueError:
-        abort(400)
-
-    authorities = []
+        ids = []
+    authorities_data = []
     for aid in ids:
-        auth = query(
-            """SELECT a.*, rc.name AS class_name, rg.name AS region_name
-               FROM authority a
-               JOIN authority_class rc ON rc.code=a.class_code
-               JOIN region rg ON rg.code=a.region_code
-               WHERE a.id=?""",
-            (aid,), one=True
-        )
+        auth = query_one("SELECT * FROM authority WHERE id=?", (aid,))
         if auth:
-            records = query(
-                "SELECT * FROM council_tax_record WHERE authority_id=? ORDER BY year",
-                (aid,)
-            )
-            authorities.append({"auth": auth, "records": {r["year"]: r for r in records}})
-
-    # Search suggestions
-    q = request.args.get("q", "").strip()
-    suggestions = []
-    if q:
-        suggestions = query(
-            "SELECT id, name, region_code, class_code FROM authority WHERE name LIKE ? ORDER BY name LIMIT 10",
-            (f"%{q}%",)
-        )
-
-    return render_template(
-        "compare.html",
-        authorities=authorities,
-        selected_ids=ids,
-        q=q,
-        suggestions=suggestions,
-    )
+            recs = {r["year"]: r for r in query(
+                "SELECT * FROM council_tax_record WHERE authority_id=?", (aid,))}
+            authorities_data.append({"auth": auth, "records": recs})
+    all_auths = query("SELECT id, name FROM authority ORDER BY name")
+    return render_template("compare.html", authorities=authorities_data, years=YEARS,
+                           all_auths=all_auths, ids=ids,
+                           region_labels=REGION_LABELS, class_labels=CLASS_LABELS)
 
 
 @app.route("/regions")
 def regions():
-    """Regional overview page."""
     year = request.args.get("year", "2026-27")
-    data = query(
-        """SELECT rg.code, rg.name,
-                  COUNT(DISTINCT a.id)    AS authority_count,
-                  AVG(r.band_d_billing)   AS avg_billing,
-                  AVG(r.band_d_area)      AS avg_area,
-                  AVG(r.pct_change)       AS avg_change,
-                  MIN(r.band_d_billing)   AS min_billing,
-                  MAX(r.band_d_billing)   AS max_billing
-           FROM region rg
-           JOIN authority a  ON a.region_code=rg.code
-           JOIN council_tax_record r ON r.authority_id=a.id
-           WHERE r.year=? AND rg.code != '[z]'
-           GROUP BY rg.code, rg.name
-           ORDER BY avg_area DESC""",
-        (year,)
-    )
-    return render_template("regions.html", regions=data, year=year)
+    if year not in YEARS:
+        year = "2026-27"
+    rows = query(
+        """SELECT a.region_code, COUNT(*) AS total_las,
+                  AVG(r.band_d_area) AS avg_area_band_d,
+                  MIN(r.band_d_area) AS min_area_band_d,
+                  MAX(r.band_d_area) AS max_area_band_d,
+                  AVG(r.pct_change)  AS avg_pct_change,
+                  SUM(r.taxbase)     AS total_taxbase
+           FROM council_tax_record r JOIN authority a ON a.id=r.authority_id
+           WHERE r.year=? AND a.region_code NOT IN ('[z]','Eng')
+           GROUP BY a.region_code ORDER BY avg_area_band_d DESC""", (year,))
+    return render_template("regions.html", rows=rows, year=year, years=YEARS,
+                           region_labels=REGION_LABELS)
 
 
-@app.route("/region/<region_code>")
-def region_detail(region_code):
-    """All authorities in a region."""
-    year = request.args.get("year", "2026-27")
-    region = query("SELECT * FROM region WHERE code=?", (region_code,), one=True)
-    if not region:
+@app.route("/region/<code>")
+def region_detail(code):
+    if code not in REGION_LABELS:
         abort(404)
-
-    authorities = query(
-        """SELECT a.id, a.name, a.class_code,
-                  r.band_d_billing, r.band_d_area, r.pct_change, r.taxbase
+    year = request.args.get("year", "2026-27")
+    if year not in YEARS:
+        year = "2026-27"
+    las = query(
+        """SELECT a.id, a.name, a.class_code, r.band_d_billing, r.band_d_area,
+                  r.pct_change, r.taxbase, r.ct_requirement
            FROM council_tax_record r JOIN authority a ON a.id=r.authority_id
-           WHERE r.year=? AND a.region_code=?
-           ORDER BY r.band_d_billing DESC""",
-        (year, region_code)
-    )
-
-    summary = query(
-        """SELECT AVG(r.band_d_billing) AS avg_billing, AVG(r.band_d_area) AS avg_area,
-                  AVG(r.pct_change) AS avg_change, MIN(r.band_d_billing) AS min_b,
-                  MAX(r.band_d_billing) AS max_b, COUNT(*) AS n
+           WHERE a.region_code=? AND r.year=? ORDER BY r.band_d_area DESC""",
+        (code, year))
+    summary = query_one(
+        """SELECT AVG(r.band_d_area) AS avg_area, AVG(r.pct_change) AS avg_change,
+                  COUNT(*) AS total
            FROM council_tax_record r JOIN authority a ON a.id=r.authority_id
-           WHERE r.year=? AND a.region_code=?""",
-        (year, region_code), one=True
-    )
+           WHERE a.region_code=? AND r.year=?""", (code, year))
+    trend = query(
+        """SELECT r.year, AVG(r.band_d_area) AS avg_area
+           FROM council_tax_record r JOIN authority a ON a.id=r.authority_id
+           WHERE a.region_code=? GROUP BY r.year ORDER BY r.year""", (code,))
+    return render_template("region_detail.html", code=code,
+                           region_name=REGION_LABELS[code], las=las,
+                           summary=summary, trend=trend, year=year, years=YEARS,
+                           class_labels=CLASS_LABELS)
 
-    return render_template(
-        "region_detail.html",
-        region=region, authorities=authorities, summary=summary, year=year
-    )
-
-
-@app.route("/search")
-def search():
-    q = request.args.get("q", "").strip()
-    if not q:
-        return redirect(url_for("authority_list"))
-    results = query(
-        """SELECT a.id, a.name, a.region_code, a.class_code,
-                  r.band_d_billing, r.band_d_area, r.pct_change
-           FROM authority a
-           JOIN council_tax_record r ON r.authority_id=a.id
-           WHERE a.name LIKE ? AND r.year='2026-27'
-           ORDER BY a.name LIMIT 50""",
-        (f"%{q}%",)
-    )
-    return render_template("search.html", results=results, q=q)
-
-
-# ── Error handlers ────────────────────────────────────────────────────────────
 
 @app.errorhandler(404)
 def not_found(e):
-    return render_template("errors/404.html"), 404
-
-
-@app.errorhandler(400)
-def bad_request(e):
-    return render_template("errors/400.html"), 400
+    return render_template("error.html", code=404, message="Page not found."), 404
 
 
 @app.errorhandler(500)
 def server_error(e):
-    return render_template("errors/500.html"), 500
+    return render_template("error.html", code=500,
+                           message="An internal server error occurred."), 500
 
 
-# ── Run ───────────────────────────────────────────────────────────────────────
+@app.errorhandler(400)
+def bad_request(e):
+    return render_template("error.html", code=400,
+                           message="Bad request. Please check your input."), 400
+
 
 if __name__ == "__main__":
-    if not os.path.exists(DB_PATH):
-        print("Database not found – run seed_db.py first.")
-    else:
-        app.run(debug=True)
+    app.run(debug=True)
