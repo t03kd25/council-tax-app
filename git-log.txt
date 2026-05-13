@@ -1,0 +1,10 @@
+* 3a05b18 : Add README and requirements.txt
+* b7ac7c8 : Fix pagination url_for Jinja2 syntax
+* b66dda0 : Add search route and template
+* 6bac7cf : Add error handlers (400, 404, 500)
+* 4405ad2 : Add full unittest suite (34 tests)
+* e5d3086 : Add region detail with summary stats
+* d0122b6 : Add regions overview page
+* 29b5131 : Fix compare suggestions query
+* 9cfeb18 : Add compare route and template
+* 43909ed : Initial commit: project structure, seed script, CSS
