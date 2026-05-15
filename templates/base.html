@@ -9,7 +9,7 @@
 <body>
   <header class="site-header">
     <div class="container">
-      <a href="{{ url_for('index') }}" class="logo">🏛 Council Tax Explorer</a>
+      <a href="{{ url_for('index') }}" class="logo">Council Tax Explorer</a>
       <nav class="main-nav">
         <a href="{{ url_for('index') }}"        {% if request.endpoint=='index' %}class="active"{% endif %}>Home</a>
         <a href="{{ url_for('authorities') }}"  {% if request.endpoint=='authorities' %}class="active"{% endif %}>Billing</a>
